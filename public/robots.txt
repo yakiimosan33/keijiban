@@ -1,0 +1,6 @@
+# Prevent search engine indexing
+User-agent: *
+Disallow: /
+
+# Anonymous bulletin board - should not be indexed
+Noindex: *
