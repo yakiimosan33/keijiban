@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form Validation Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .input-field {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        .textarea-field {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            resize: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .textarea-field:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        .btn-primary {
+            background-color: #4f46e5;
+            color: white;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background-color: #3730a3;
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .error-border {
+            border-color: #ef4444;
+        }
+        .error-border:focus {
+            border-color: #ef4444;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+        }
+        .success-border {
+            border-color: #22c55e;
+        }
+        .success-border:focus {
+            border-color: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-2xl mx-auto">
+        <h1 class="text-3xl font-bold text-gray-900 mb-8">Form Validation Test</h1>
+        
+        <!-- Post Form Test -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">投稿フォーム</h2>
+            <form id="post-form" class="space-y-6">
+                <div>
+                    <label for="title" class="block text-sm font-medium text-gray-700 mb-2">
+                        タイトル <span class="text-red-500">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="title" 
+                        name="title"
+                        class="input-field" 
+                        placeholder="投稿のタイトルを入力してください"
+                        maxlength="120"
+                    />
+                    <div class="mt-2">
+                        <div id="title-error" class="text-sm text-red-600 hidden"></div>
+                        <div class="flex items-center justify-between">
+                            <div id="title-counter" class="text-xs text-gray-500">0/120</div>
+                        </div>
+                        <div class="w-full h-1 bg-gray-200 rounded-full overflow-hidden mt-1">
+                            <div id="title-progress" class="h-full bg-blue-500 transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="body" class="block text-sm font-medium text-gray-700 mb-2">
+                        本文 <span class="text-red-500">*</span>
+                    </label>
+                    <textarea 
+                        id="body" 
+                        name="body"
+                        class="textarea-field" 
+                        placeholder="投稿の内容を入力してください"
+                        rows="6"
+                        maxlength="4000"
+                    ></textarea>
+                    <div class="mt-2">
+                        <div id="body-error" class="text-sm text-red-600 hidden"></div>
+                        <div class="flex items-center justify-between">
+                            <div id="body-counter" class="text-xs text-gray-500">0/4000</div>
+                        </div>
+                        <div class="w-full h-1 bg-gray-200 rounded-full overflow-hidden mt-1">
+                            <div id="body-progress" class="h-full bg-blue-500 transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end">
+                    <button type="submit" id="submit-btn" class="btn-primary">
+                        投稿する
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Test Results -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Validation Test Results</h2>
+            <div id="test-results" class="space-y-2 text-sm font-mono bg-gray-50 p-4 rounded"></div>
+        </div>
+    </div>
+
+    <script>
+        // Simple validation implementation for testing
+        const FIELD_CONFIG = {
+            title: { minLength: 1, maxLength: 120, required: true },
+            body: { minLength: 1, maxLength: 4000, required: true }
+        };
+
+        const CHARACTER_THRESHOLDS = {
+            safe: 0.7,
+            warning: 0.9,
+            danger: 1.0
+        };
+
+        function validateTextField(value, fieldType, touched = false) {
+            const config = FIELD_CONFIG[fieldType];
+            const trimmedValue = value.trim();
+            
+            if (!touched && trimmedValue.length === 0) {
+                return { isValid: true };
+            }
+
+            if (config.required && trimmedValue.length === 0) {
+                const fieldNames = { title: 'タイトル', body: '本文' };
+                return {
+                    isValid: false,
+                    error: {
+                        message: `${fieldNames[fieldType]}を入力してください`,
+                        type: 'required',
+                        severity: 'error'
+                    }
+                };
+            }
+
+            if (value.length > config.maxLength) {
+                const fieldNames = { title: 'タイトル', body: '本文' };
+                return {
+                    isValid: false,
+                    error: {
+                        message: `${fieldNames[fieldType]}は${config.maxLength}文字以内で入力してください`,
+                        type: 'maxLength',
+                        severity: 'error'
+                    }
+                };
+            }
+
+            const usageRatio = value.length / config.maxLength;
+            if (usageRatio >= CHARACTER_THRESHOLDS.warning && usageRatio < CHARACTER_THRESHOLDS.danger) {
+                const remaining = config.maxLength - value.length;
+                return {
+                    isValid: true,
+                    error: {
+                        message: `残り${remaining}文字です`,
+                        type: 'warning',
+                        severity: 'warning'
+                    }
+                };
+            }
+
+            return { isValid: true };
+        }
+
+        function getCharacterCountColor(current, max) {
+            const ratio = current / max;
+            
+            if (ratio >= CHARACTER_THRESHOLDS.danger) {
+                return 'text-red-600 font-medium';
+            } else if (ratio >= CHARACTER_THRESHOLDS.warning) {
+                return 'text-amber-600 font-medium';
+            } else if (ratio >= CHARACTER_THRESHOLDS.safe) {
+                return 'text-yellow-600';
+            } else {
+                return 'text-gray-500';
+            }
+        }
+
+        function getProgressColor(current, max) {
+            const ratio = current / max;
+            
+            if (ratio >= CHARACTER_THRESHOLDS.danger) {
+                return 'bg-red-500';
+            } else if (ratio >= CHARACTER_THRESHOLDS.warning) {
+                return 'bg-amber-500';
+            } else if (ratio >= CHARACTER_THRESHOLDS.safe) {
+                return 'bg-yellow-500';
+            } else {
+                return 'bg-blue-500';
+            }
+        }
+
+        function sanitizeInput(input) {
+            return input
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#x27;')
+                .replace(/\//g, '&#x2F;')
+                .trim();
+        }
+
+        // Form validation logic
+        const titleInput = document.getElementById('title');
+        const bodyInput = document.getElementById('body');
+        const submitBtn = document.getElementById('submit-btn');
+        const testResults = document.getElementById('test-results');
+
+        let titleTouched = false;
+        let bodyTouched = false;
+
+        function updateField(fieldType, input, touched = false) {
+            const value = input.value;
+            const result = validateTextField(value, fieldType, touched);
+            
+            const errorDiv = document.getElementById(`${fieldType}-error`);
+            const counterDiv = document.getElementById(`${fieldType}-counter`);
+            const progressDiv = document.getElementById(`${fieldType}-progress`);
+            
+            const config = FIELD_CONFIG[fieldType];
+            const current = value.length;
+            const max = config.maxLength;
+            const ratio = current / max;
+
+            // Update counter
+            const colorClass = getCharacterCountColor(current, max);
+            counterDiv.textContent = `${current}/${max}`;
+            counterDiv.className = `text-xs ${colorClass}`;
+
+            // Update progress bar
+            const progressColor = getProgressColor(current, max);
+            progressDiv.style.width = `${Math.min((current / max) * 100, 100)}%`;
+            progressDiv.className = `h-full transition-all duration-300 ${progressColor}`;
+
+            // Update error display
+            if (result.error && touched) {
+                errorDiv.textContent = result.error.message;
+                errorDiv.classList.remove('hidden');
+                
+                if (result.error.severity === 'error') {
+                    input.classList.add('error-border');
+                    input.classList.remove('success-border');
+                } else {
+                    input.classList.remove('error-border', 'success-border');
+                }
+            } else {
+                errorDiv.classList.add('hidden');
+                
+                if (touched && result.isValid && value.trim()) {
+                    input.classList.add('success-border');
+                    input.classList.remove('error-border');
+                } else {
+                    input.classList.remove('error-border', 'success-border');
+                }
+            }
+
+            updateSubmitButton();
+            logTest(`${fieldType} validation`, { value: value.substring(0, 50), result });
+        }
+
+        function updateSubmitButton() {
+            const titleValid = validateTextField(titleInput.value, 'title', titleTouched).isValid;
+            const bodyValid = validateTextField(bodyInput.value, 'body', bodyTouched).isValid;
+            const formValid = titleValid && bodyValid && 
+                            titleInput.value.trim() && bodyInput.value.trim();
+            
+            submitBtn.disabled = !formValid;
+        }
+
+        function logTest(test, data) {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.innerHTML = `<span class="text-blue-600">[${timestamp}]</span> ${test}: ${JSON.stringify(data)}`;
+            testResults.appendChild(entry);
+            testResults.scrollTop = testResults.scrollHeight;
+        }
+
+        // Event listeners
+        titleInput.addEventListener('input', () => updateField('title', titleInput, titleTouched));
+        titleInput.addEventListener('blur', () => {
+            titleTouched = true;
+            updateField('title', titleInput, true);
+        });
+
+        bodyInput.addEventListener('input', () => updateField('body', bodyInput, bodyTouched));
+        bodyInput.addEventListener('blur', () => {
+            bodyTouched = true;
+            updateField('body', bodyInput, true);
+        });
+
+        // Form submission
+        document.getElementById('post-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            titleTouched = true;
+            bodyTouched = true;
+            
+            updateField('title', titleInput, true);
+            updateField('body', bodyInput, true);
+            
+            const titleResult = validateTextField(titleInput.value, 'title', true);
+            const bodyResult = validateTextField(bodyInput.value, 'body', true);
+            
+            if (titleResult.isValid && bodyResult.isValid) {
+                const sanitizedTitle = sanitizeInput(titleInput.value);
+                const sanitizedBody = sanitizeInput(bodyInput.value);
+                
+                logTest('Form submission', {
+                    title: sanitizedTitle,
+                    body: sanitizedBody.substring(0, 50),
+                    success: true
+                });
+                
+                alert('フォーム送信成功！（テスト環境）');
+            } else {
+                logTest('Form submission failed', {
+                    titleError: titleResult.error?.message,
+                    bodyError: bodyResult.error?.message
+                });
+            }
+        });
+
+        // Initialize
+        updateField('title', titleInput);
+        updateField('body', bodyInput);
+        logTest('Form validation initialized', { timestamp: new Date().toISOString() });
+    </script>
+</body>
+</html>

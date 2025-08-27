@@ -13,10 +13,16 @@ if (!supabaseAnonKey) {
   throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY');
 }
 
-// Create Supabase client with type safety
+// Create Supabase client with type safety and real-time configuration
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: false, // Anonymous board - no authentication needed
+    autoRefreshToken: false,
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10, // Limit events to prevent spam
+    },
   },
   global: {
     headers: {

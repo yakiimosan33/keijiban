@@ -4,6 +4,7 @@ import type {
   Comment,
   PostInsert,
   CommentInsert,
+  PostWithCommentCount,
   PaginatedResponse,
 } from './types';
 import { calculatePagination } from './utils';
@@ -102,25 +103,63 @@ export const postsApi = {
   },
 
   /**
-   * Subscribe to real-time changes for posts
+   * Get posts with comment counts (for list view)
    */
-  subscribeToChanges(callback: (payload: any) => void) {
-    const channel = supabase
-      .channel('posts-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'posts',
-          filter: 'is_hidden=eq.false',
-        },
-        callback,
-      )
-      .subscribe();
+  async getAllWithCommentCounts(page: number = 1): Promise<PaginatedResponse<PostWithCommentCount>> {
+    const { offset, limit } = calculatePagination(page, 0);
 
-    return () => {
-      supabase.removeChannel(channel);
+    // Get total count
+    const { count } = await supabase
+      .from('posts')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_hidden', false);
+
+    if (!count) {
+      return {
+        data: [],
+        count: 0,
+        hasNextPage: false,
+        hasPrevPage: false,
+        totalPages: 0,
+      };
+    }
+
+    const { totalPages, hasNextPage, hasPrevPage } = calculatePagination(
+      page,
+      count,
+    );
+
+    // Get posts with comment counts - using a simpler approach
+    const { data, error } = await supabase
+      .from('posts')
+      .select('*')
+      .eq('is_hidden', false)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      throw new Error(`Failed to fetch posts: ${error.message}`);
+    }
+
+    // Get comment counts separately for each post
+    const postsWithCounts: PostWithCommentCount[] = [];
+    
+    for (const post of data || []) {
+      const commentCount = await commentsApi.getCountByPostId(post.id);
+      postsWithCounts.push({
+        ...post,
+        comment_count: commentCount,
+      });
+    }
+
+    const transformedData = postsWithCounts;
+
+    return {
+      data: transformedData,
+      count,
+      hasNextPage,
+      hasPrevPage,
+      totalPages,
     };
   },
 };
@@ -179,86 +218,184 @@ export const commentsApi = {
     return data;
   },
 
-  /**
-   * Subscribe to real-time changes for comments on a specific post
-   */
-  subscribeToPostChanges(postId: number, callback: (payload: any) => void) {
-    const channel = supabase
-      .channel(`comments-post-${postId}-changes`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'comments',
-          filter: `post_id=eq.${postId} and is_hidden=eq.false`,
-        },
-        callback,
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  },
 };
+
+// Rate limiting types
+interface RateLimitInfo {
+  isAllowed: boolean;
+  remaining: number;
+  resetTime: number; // timestamp when limit resets
+  timeUntilReset: number; // seconds until reset
+  message?: string;
+}
 
 // Rate limiting helpers
 export const rateLimiting = {
   /**
-   * Check if rate limit is exceeded for posts
-   * This is a client-side check - real enforcement should be done server-side
+   * Check rate limit for posts with detailed information
    */
-  checkPostRateLimit(): boolean {
+  checkPostRateLimit(): RateLimitInfo {
     const key = 'post-rate-limit';
     const now = Date.now();
     const windowMs = 60 * 1000; // 1 minute
     const limit = 3; // 3 posts per minute
 
     const stored = localStorage.getItem(key);
-    let attempts = stored ? JSON.parse(stored) : [];
+    let attempts: number[] = stored ? JSON.parse(stored) : [];
 
     // Remove old attempts
     attempts = attempts.filter(
       (timestamp: number) => now - timestamp < windowMs,
     );
 
+    const remaining = Math.max(0, limit - attempts.length);
+    const oldestAttempt = attempts.length > 0 ? Math.min(...attempts) : now;
+    const resetTime = oldestAttempt + windowMs;
+    const timeUntilReset = Math.max(0, Math.ceil((resetTime - now) / 1000));
+
     if (attempts.length >= limit) {
-      return false; // Rate limit exceeded
+      return {
+        isAllowed: false,
+        remaining: 0,
+        resetTime,
+        timeUntilReset,
+        message: `投稿制限に達しました。${timeUntilReset}秒後に再度お試しください。`
+      };
     }
 
-    // Add current attempt
+    // Add current attempt when checking for submission
     attempts.push(now);
     localStorage.setItem(key, JSON.stringify(attempts));
 
-    return true; // Rate limit OK
+    return {
+      isAllowed: true,
+      remaining: remaining - 1, // Account for current attempt
+      resetTime,
+      timeUntilReset,
+    };
   },
 
   /**
-   * Check if rate limit is exceeded for comments
+   * Get current post rate limit status without adding attempt
    */
-  checkCommentRateLimit(): boolean {
+  getPostRateLimitStatus(): RateLimitInfo {
+    const key = 'post-rate-limit';
+    const now = Date.now();
+    const windowMs = 60 * 1000; // 1 minute
+    const limit = 3; // 3 posts per minute
+
+    const stored = localStorage.getItem(key);
+    let attempts: number[] = stored ? JSON.parse(stored) : [];
+
+    // Remove old attempts
+    attempts = attempts.filter(
+      (timestamp: number) => now - timestamp < windowMs,
+    );
+
+    const remaining = Math.max(0, limit - attempts.length);
+    const oldestAttempt = attempts.length > 0 ? Math.min(...attempts) : now;
+    const resetTime = oldestAttempt + windowMs;
+    const timeUntilReset = Math.max(0, Math.ceil((resetTime - now) / 1000));
+
+    if (attempts.length >= limit) {
+      return {
+        isAllowed: false,
+        remaining: 0,
+        resetTime,
+        timeUntilReset,
+        message: `投稿制限中です。${timeUntilReset}秒後に再度お試しください。`
+      };
+    }
+
+    return {
+      isAllowed: true,
+      remaining,
+      resetTime,
+      timeUntilReset,
+    };
+  },
+
+  /**
+   * Check rate limit for comments with detailed information
+   */
+  checkCommentRateLimit(): RateLimitInfo {
     const key = 'comment-rate-limit';
     const now = Date.now();
     const windowMs = 60 * 1000; // 1 minute
     const limit = 10; // 10 comments per minute
 
     const stored = localStorage.getItem(key);
-    let attempts = stored ? JSON.parse(stored) : [];
+    let attempts: number[] = stored ? JSON.parse(stored) : [];
 
     // Remove old attempts
     attempts = attempts.filter(
       (timestamp: number) => now - timestamp < windowMs,
     );
 
+    const remaining = Math.max(0, limit - attempts.length);
+    const oldestAttempt = attempts.length > 0 ? Math.min(...attempts) : now;
+    const resetTime = oldestAttempt + windowMs;
+    const timeUntilReset = Math.max(0, Math.ceil((resetTime - now) / 1000));
+
     if (attempts.length >= limit) {
-      return false; // Rate limit exceeded
+      return {
+        isAllowed: false,
+        remaining: 0,
+        resetTime,
+        timeUntilReset,
+        message: `コメント制限に達しました。${timeUntilReset}秒後に再度お試しください。`
+      };
     }
 
-    // Add current attempt
+    // Add current attempt when checking for submission
     attempts.push(now);
     localStorage.setItem(key, JSON.stringify(attempts));
 
-    return true; // Rate limit OK
+    return {
+      isAllowed: true,
+      remaining: remaining - 1, // Account for current attempt
+      resetTime,
+      timeUntilReset,
+    };
+  },
+
+  /**
+   * Get current comment rate limit status without adding attempt
+   */
+  getCommentRateLimitStatus(): RateLimitInfo {
+    const key = 'comment-rate-limit';
+    const now = Date.now();
+    const windowMs = 60 * 1000; // 1 minute
+    const limit = 10; // 10 comments per minute
+
+    const stored = localStorage.getItem(key);
+    let attempts: number[] = stored ? JSON.parse(stored) : [];
+
+    // Remove old attempts
+    attempts = attempts.filter(
+      (timestamp: number) => now - timestamp < windowMs,
+    );
+
+    const remaining = Math.max(0, limit - attempts.length);
+    const oldestAttempt = attempts.length > 0 ? Math.min(...attempts) : now;
+    const resetTime = oldestAttempt + windowMs;
+    const timeUntilReset = Math.max(0, Math.ceil((resetTime - now) / 1000));
+
+    if (attempts.length >= limit) {
+      return {
+        isAllowed: false,
+        remaining: 0,
+        resetTime,
+        timeUntilReset,
+        message: `コメント制限中です。${timeUntilReset}秒後に再度お試しください。`
+      };
+    }
+
+    return {
+      isAllowed: true,
+      remaining,
+      resetTime,
+      timeUntilReset,
+    };
   },
 };

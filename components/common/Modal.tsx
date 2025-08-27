@@ -78,6 +78,7 @@ export default function Modal({
           <button
             onClick={onClose}
             className="p-2 hover:bg-zinc-100 rounded-full transition-colors"
+            style={{ minHeight: '44px', minWidth: '44px' }}
             type="button"
             aria-label="閉じる"
           >

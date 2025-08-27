@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Post } from '@/lib/types';
+import { postsApi } from '@/lib/api';
 import { formatRelativeTime } from '@/lib/utils';
 
 interface PostDetailProps {
@@ -13,26 +14,30 @@ export default function PostDetail({ postId }: PostDetailProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // TODO: Fetch post from Supabase
-    // For now, show placeholder data
-    setTimeout(() => {
-      if (postId === 1) {
-        const mockPost: Post = {
-          id: 1,
-          title: 'サンプル投稿タイトル1',
-          body: 'これはサンプルの投稿内容です。実際の投稿では、ユーザーが入力したテキストがここに表示されます。\n\n改行も正しく表示されます。長いテキストの場合は、このように複数の段落に分かれることもあります。',
-          created_at: new Date().toISOString(),
-          is_hidden: false,
-          ip_hash: null,
-        };
-        setPost(mockPost);
-      } else {
+  const fetchPost = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const result = await postsApi.getById(postId);
+      
+      if (!result) {
         setError('投稿が見つかりません');
+        return;
       }
+
+      setPost(result);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : '投稿の取得に失敗しました';
+      setError(errorMessage);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   }, [postId]);
+
+  useEffect(() => {
+    fetchPost();
+  }, [fetchPost]);
 
   if (loading) {
     return (
@@ -50,13 +55,24 @@ export default function PostDetail({ postId }: PostDetailProps) {
     );
   }
 
-  if (error || !post) {
+  if (error || (!post && !loading)) {
     return (
       <div className="card p-6 text-center">
-        <p className="text-red-600 mb-2">{error || '投稿が見つかりません'}</p>
-        <p className="text-sm text-zinc-500">
+        <div className="text-red-600 mb-4">
+          <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+        </div>
+        <p className="text-zinc-700 font-medium mb-2">{error || '投稿が見つかりません'}</p>
+        <p className="text-sm text-zinc-500 mb-4">
           投稿が削除されているか、URLが間違っている可能性があります。
         </p>
+        <button
+          onClick={fetchPost}
+          className="btn-primary"
+        >
+          再試行
+        </button>
       </div>
     );
   }

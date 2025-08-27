@@ -65,7 +65,7 @@ export default function Pagination({
 
   return (
     <nav
-      className="flex items-center justify-center gap-2 py-6"
+      className="flex items-center justify-center gap-2 py-6 overflow-x-auto px-4 sm:px-0"
       role="navigation"
       aria-label="ページネーション"
     >
@@ -73,7 +73,8 @@ export default function Pagination({
       {hasPrevPage ? (
         <Link
           href={currentPage === 2 ? '/' : `/?page=${currentPage - 1}`}
-          className="flex items-center gap-2 px-3 py-2 rounded-card border border-zinc-300 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+          className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-card border border-zinc-300 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors whitespace-nowrap"
+          style={{ minHeight: '44px' }}
           aria-label="前のページ"
         >
           <svg
@@ -89,10 +90,10 @@ export default function Pagination({
               d="M15 19l-7-7 7-7"
             />
           </svg>
-          前へ
+          <span className="hidden xs:inline sm:inline">前へ</span>
         </Link>
       ) : (
-        <span className="flex items-center gap-2 px-3 py-2 rounded-card border border-zinc-200 text-sm font-medium text-zinc-400 cursor-not-allowed">
+        <span className="flex items-center gap-2 px-3 py-2 rounded-card border border-zinc-200 text-sm font-medium text-zinc-400 cursor-not-allowed" style={{ minHeight: '44px' }}>
           <svg
             className="w-4 h-4"
             fill="none"
@@ -111,7 +112,7 @@ export default function Pagination({
       )}
 
       {/* Page numbers */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 flex-shrink-0">
         {visiblePages.map((page, index) => {
           if (page === '...') {
             return (
@@ -131,6 +132,7 @@ export default function Pagination({
             <span
               key={pageNum}
               className="px-3 py-2 rounded-card bg-primary-600 text-white text-sm font-medium"
+              style={{ minHeight: '44px', display: 'flex', alignItems: 'center' }}
               aria-current="page"
             >
               {pageNum}
@@ -139,7 +141,8 @@ export default function Pagination({
             <Link
               key={pageNum}
               href={pageNum === 1 ? '/' : `/?page=${pageNum}`}
-              className="px-3 py-2 rounded-card border border-zinc-300 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+              className="px-3 py-2 rounded-card border border-zinc-300 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors flex items-center"
+              style={{ minHeight: '44px' }}
               aria-label={`ページ ${pageNum}`}
             >
               {pageNum}
@@ -152,10 +155,11 @@ export default function Pagination({
       {hasNextPage ? (
         <Link
           href={`/?page=${currentPage + 1}`}
-          className="flex items-center gap-2 px-3 py-2 rounded-card border border-zinc-300 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+          className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-card border border-zinc-300 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors whitespace-nowrap"
+          style={{ minHeight: '44px' }}
           aria-label="次のページ"
         >
-          次へ
+          <span className="hidden xs:inline sm:inline">次へ</span>
           <svg
             className="w-4 h-4"
             fill="none"
@@ -171,7 +175,7 @@ export default function Pagination({
           </svg>
         </Link>
       ) : (
-        <span className="flex items-center gap-2 px-3 py-2 rounded-card border border-zinc-200 text-sm font-medium text-zinc-400 cursor-not-allowed">
+        <span className="flex items-center gap-2 px-3 py-2 rounded-card border border-zinc-200 text-sm font-medium text-zinc-400 cursor-not-allowed" style={{ minHeight: '44px' }}>
           次へ
           <svg
             className="w-4 h-4"

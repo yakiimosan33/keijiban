@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import RealtimeStatus from '@/components/common/RealtimeStatus';
 
 export const metadata: Metadata = {
   title: 'バイブコーディング掲示板',
@@ -17,6 +18,7 @@ export default function RootLayout({
     <html lang="ja">
       <body className="min-h-screen bg-zinc-50 font-sans antialiased">
         {children}
+        <RealtimeStatus />
       </body>
     </html>
   );

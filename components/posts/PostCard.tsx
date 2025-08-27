@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import { Post } from '@/lib/types';
+import { PostWithCommentCount } from '@/lib/types';
 import { formatRelativeTime, truncateText } from '@/lib/utils';
 
 interface PostCardProps {
-  post: Post;
+  post: PostWithCommentCount;
 }
 
 export default function PostCard({ post }: PostCardProps) {
@@ -12,7 +12,7 @@ export default function PostCard({ post }: PostCardProps) {
 
   return (
     <Link href={`/post/${post.id}`} className="block group">
-      <article className="card p-6 hover:shadow-md transition-shadow duration-200">
+      <article className="card p-4 sm:p-6 hover:shadow-md transition-shadow duration-200" style={{ minHeight: '44px' }}>
         <header className="mb-3">
           <h2 className="text-lg font-semibold text-zinc-900 group-hover:text-primary-600 transition-colors line-clamp-2">
             {post.title}
@@ -48,7 +48,7 @@ export default function PostCard({ post }: PostCardProps) {
                   d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                 />
               </svg>
-              <span>0</span> {/* TODO: Add comment count */}
+              <span>{post.comment_count || 0}</span>
             </div>
           </div>
         </footer>
