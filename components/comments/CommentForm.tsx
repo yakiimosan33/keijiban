@@ -20,6 +20,12 @@ interface CommentFormProps {
 }
 
 interface FormState {
+  username: {
+    value: string;
+    error?: ValidationError;
+    touched: boolean;
+    focused: boolean;
+  };
   body: {
     value: string;
     error?: ValidationError;
@@ -30,6 +36,7 @@ interface FormState {
 
 export default function CommentForm({ postId }: CommentFormProps) {
   const [formState, setFormState] = useState<FormState>({
+    username: { value: '', touched: false, focused: false },
     body: { value: '', touched: false, focused: false },
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -40,19 +47,22 @@ export default function CommentForm({ postId }: CommentFormProps) {
     isVisible: boolean;
   }>({ message: '', type: 'info', isVisible: false });
   
+  const usernameInputRef = useRef<HTMLInputElement>(null);
   const bodyInputRef = useRef<HTMLTextAreaElement>(null);
   const submitAttempts = useRef(0);
 
   const validateForm = useCallback((): boolean => {
+    const usernameResult = validateTextField(formState.username.value, 'username', true);
     const bodyResult = validateTextField(formState.body.value, 'comment', true);
     
     const newFormState = {
+      username: { ...formState.username, error: usernameResult.error, touched: true },
       body: { ...formState.body, error: bodyResult.error, touched: true },
     };
     
     setFormState(newFormState);
     
-    return bodyResult.isValid;
+    return usernameResult.isValid && bodyResult.isValid;
   }, [formState]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,8 +70,10 @@ export default function CommentForm({ postId }: CommentFormProps) {
     submitAttempts.current += 1;
 
     if (!validateForm()) {
-      // Focus on error field
-      if (formState.body.error && bodyInputRef.current) {
+      // Focus on first error field
+      if (formState.username.error && usernameInputRef.current) {
+        usernameInputRef.current.focus();
+      } else if (formState.body.error && bodyInputRef.current) {
         bodyInputRef.current.focus();
       }
       return;
@@ -77,10 +89,14 @@ export default function CommentForm({ postId }: CommentFormProps) {
     setIsSubmitting(true);
 
     try {
+      const sanitizedUsername = formState.username.value.trim() 
+        ? sanitizeInput(formState.username.value.trim()) 
+        : null;
       const sanitizedBody = sanitizeInput(formState.body.value.trim());
       
       const commentData: CommentInsert = {
         post_id: postId,
+        username: sanitizedUsername,
         body: sanitizedBody,
         // Note: ip_hash would typically be set server-side for security
       };
@@ -106,6 +122,7 @@ export default function CommentForm({ postId }: CommentFormProps) {
 
   const resetForm = () => {
     setFormState({
+      username: { value: '', touched: false, focused: false },
       body: { value: '', touched: false, focused: false },
     });
     submitAttempts.current = 0;
@@ -118,6 +135,20 @@ export default function CommentForm({ postId }: CommentFormProps) {
   const closeToast = () => {
     setToast((prev) => ({ ...prev, isVisible: false }));
   };
+
+  const handleUsernameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const result = validateTextField(value, 'username', formState.username.touched);
+    
+    setFormState(prev => ({
+      ...prev,
+      username: {
+        ...prev.username,
+        value,
+        error: result.error,
+      }
+    }));
+  }, [formState.username.touched]);
 
   const handleBodyChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
@@ -133,10 +164,30 @@ export default function CommentForm({ postId }: CommentFormProps) {
     }));
   }, [formState.body.touched]);
 
+  const handleUsernameFocus = () => {
+    setFormState(prev => ({
+      ...prev,
+      username: { ...prev.username, focused: true }
+    }));
+  };
+
   const handleBodyFocus = () => {
     setFormState(prev => ({
       ...prev,
       body: { ...prev.body, focused: true }
+    }));
+  };
+
+  const handleUsernameBlur = () => {
+    const result = validateTextField(formState.username.value, 'username', true);
+    setFormState(prev => ({
+      ...prev,
+      username: {
+        ...prev.username,
+        focused: false,
+        touched: true,
+        error: result.error,
+      }
     }));
   };
 
@@ -158,7 +209,8 @@ export default function CommentForm({ postId }: CommentFormProps) {
   };
 
   // Check if form can be submitted
-  const isFormValid = (!formState.body.error?.message || formState.body.error?.severity !== 'error')
+  const isFormValid = (!formState.username.error?.message || formState.username.error?.severity !== 'error')
+    && (!formState.body.error?.message || formState.body.error?.severity !== 'error')
     && formState.body.value.trim().length > 0;
 
   const isSubmitDisabled = isSubmitting || !canSubmit || !isFormValid;
@@ -174,6 +226,66 @@ export default function CommentForm({ postId }: CommentFormProps) {
         />
         
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Username field */}
+          <div>
+            <label
+              htmlFor="comment-username"
+              className="block text-sm font-medium text-zinc-700 mb-2"
+            >
+              コメント者名 <span className="text-zinc-500 text-xs">(省略可)</span>
+            </label>
+            <input
+              ref={usernameInputRef}
+              id="comment-username"
+              type="text"
+              value={formState.username.value}
+              onChange={handleUsernameChange}
+              onFocus={handleUsernameFocus}
+              onBlur={handleUsernameBlur}
+              className={`input-field ${getInputBorderColor(
+                formState.username.error,
+                formState.username.focused,
+                formState.username.touched
+              )}`}
+              style={{ minHeight: '44px' }}
+              placeholder="名前（省略可）"
+              maxLength={FIELD_CONFIG.username.maxLength}
+              disabled={isSubmitting}
+              {...getAriaAttributes(
+                'comment-username',
+                formState.username.error,
+                { current: formState.username.value.length, max: FIELD_CONFIG.username.maxLength }
+              )}
+            />
+            
+            <div className="mt-2">
+              {/* Error message */}
+              {formState.username.error && formState.username.touched && (
+                <div 
+                  id="comment-username-error" 
+                  className="mb-2"
+                  role="alert"
+                  aria-live="polite"
+                >
+                  <p className={`text-sm ${
+                    formState.username.error.severity === 'error' 
+                      ? 'text-red-600' 
+                      : 'text-amber-600'
+                  }`}>
+                    {formState.username.error.message}
+                  </p>
+                </div>
+              )}
+              
+              {/* Character counter */}
+              <CharacterCounter
+                current={formState.username.value.length}
+                max={FIELD_CONFIG.username.maxLength}
+                fieldId="comment-username"
+              />
+            </div>
+          </div>
+
           <div>
             <label
               htmlFor="comment-body"

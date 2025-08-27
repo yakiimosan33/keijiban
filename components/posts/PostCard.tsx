@@ -14,9 +14,14 @@ export default function PostCard({ post }: PostCardProps) {
     <Link href={`/post/${post.id}`} className="block group">
       <article className="card p-4 sm:p-6 hover:shadow-md transition-shadow duration-200" style={{ minHeight: '44px' }}>
         <header className="mb-3">
-          <h2 className="text-lg font-semibold text-zinc-900 group-hover:text-primary-600 transition-colors line-clamp-2">
-            {post.title}
-          </h2>
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <h2 className="text-lg font-semibold text-zinc-900 group-hover:text-primary-600 transition-colors line-clamp-2 flex-1">
+              {post.title}
+            </h2>
+            <div className="text-xs text-zinc-500 whitespace-nowrap">
+              {post.username || '名無しさん'}
+            </div>
+          </div>
         </header>
 
         <div className="mb-4">

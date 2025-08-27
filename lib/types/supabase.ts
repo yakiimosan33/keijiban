@@ -4,6 +4,7 @@ export interface Database {
       posts: {
         Row: {
           id: number;
+          username: string | null;
           title: string;
           body: string;
           created_at: string;
@@ -11,6 +12,7 @@ export interface Database {
           ip_hash: string | null;
         };
         Insert: {
+          username?: string | null;
           title: string;
           body: string;
           created_at?: string;
@@ -18,6 +20,7 @@ export interface Database {
           ip_hash?: string | null;
         };
         Update: {
+          username?: string | null;
           title?: string;
           body?: string;
           created_at?: string;
@@ -29,6 +32,7 @@ export interface Database {
         Row: {
           id: number;
           post_id: number;
+          username: string | null;
           body: string;
           created_at: string;
           is_hidden: boolean;
@@ -36,6 +40,7 @@ export interface Database {
         };
         Insert: {
           post_id: number;
+          username?: string | null;
           body: string;
           created_at?: string;
           is_hidden?: boolean;
@@ -43,6 +48,7 @@ export interface Database {
         };
         Update: {
           post_id?: number;
+          username?: string | null;
           body?: string;
           created_at?: string;
           is_hidden?: boolean;

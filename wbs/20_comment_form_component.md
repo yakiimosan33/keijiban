@@ -14,9 +14,11 @@
 
 ## 詳細説明
 コメント投稿用のフォームを実装する。投稿後はフォームをリセットし、コメント一覧に即座に反映する。
+**仕様変更**: コメント者名（username）フィールドを追加し、任意で名前を入力できるようにする。
 
 ## 受け入れ条件
 - [ ] CommentForm.tsxが作成されている
+- [ ] コメント者名入力欄（任意、最大50文字）
 - [ ] コメント本文入力欄（最大4000文字）
 - [ ] 文字数カウンター表示
 - [ ] 送信ボタン
@@ -28,10 +30,12 @@
 1. components/comments/CommentForm.tsx作成
 2. フォーム状態管理：
 ```typescript
+const [username, setUsername] = useState('')
 const [body, setBody] = useState('')
 const [isSubmitting, setIsSubmitting] = useState(false)
 ```
 3. 入力フィールド実装：
+   - 名前入力（input type="text"、プレースホルダー: "名前（省略可）"）
    - textarea（4-5行表示）
    - 文字数表示（0/4000）
 4. 送信処理実装：
@@ -39,7 +43,8 @@ const [isSubmitting, setIsSubmitting] = useState(false)
 const { data, error } = await supabase
   .from('comments')
   .insert([{ 
-    post_id: postId, 
+    post_id: postId,
+    username: username || null,
     body 
   }])
 ```

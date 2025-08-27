@@ -14,10 +14,12 @@
 
 ## 詳細説明
 コメント機能のためのcommentsテーブルを作成する。postsテーブルとの外部キー制約を設定し、適切なインデックスを追加する。
+**仕様変更**: コメント者名（username）フィールドを追加し、任意で名前を入力できるようにする。
 
 ## 受け入れ条件
 - [ ] commentsテーブルが作成されている
 - [ ] 外部キー制約が設定されている
+- [ ] usernameカラムが追加されている
 - [ ] CHECK制約が設定されている
 - [ ] インデックスが作成されている
 - [ ] postsとの関連が正しく機能する
@@ -29,6 +31,7 @@
 CREATE TABLE comments (
   id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   post_id     bigint NOT NULL REFERENCES posts(id),
+  username    varchar(50) CHECK(username IS NULL OR length(username) BETWEEN 1 AND 50),
   body        text NOT NULL CHECK(length(body) BETWEEN 1 AND 4000),
   created_at  timestamptz NOT NULL DEFAULT now(),
   is_hidden   boolean NOT NULL DEFAULT false,
@@ -53,3 +56,5 @@ CREATE INDEX idx_comments_post_id_created_at ON comments (post_id, created_at DE
 ## 備考
 - post_idで投稿と紐付け
 - コメントは時系列順（古い順）で表示予定
+- usernameは任意入力（NULL許可）、最大50文字まで
+- 名前未入力の場合は「名無しさん」などのデフォルト表示をフロントエンドで処理

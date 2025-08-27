@@ -14,6 +14,7 @@ Row Level Security (RLS) ポリシーを設定し、データベースレベル�
 
 ## 詳細説明
 postsとcommentsテーブルにRLSを有効化し、適切なアクセス制御ポリシーを設定する。匿名ユーザーの読み書き権限を適切に制御する。
+**仕様変更**: username フィールドの検証もRLSポリシーに追加する。
 
 ## 受け入れ条件
 - [ ] RLSが両テーブルで有効化されている
@@ -40,6 +41,7 @@ CREATE POLICY posts_insert_public ON posts
     is_hidden = false 
     AND length(title) BETWEEN 1 AND 120 
     AND length(body) BETWEEN 1 AND 4000
+    AND (username IS NULL OR length(username) BETWEEN 1 AND 50)
   );
 
 -- Comments policies  
@@ -50,6 +52,7 @@ CREATE POLICY comments_insert_public ON comments
   FOR INSERT WITH CHECK (
     is_hidden = false 
     AND length(body) BETWEEN 1 AND 4000
+    AND (username IS NULL OR length(username) BETWEEN 1 AND 50)
   );
 ```
 3. ポリシーの動作確認

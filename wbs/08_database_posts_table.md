@@ -14,10 +14,12 @@ Supabaseデータベースに投稿情報を格納するpostsテーブルを作�
 
 ## 詳細説明
 投稿機能の基盤となるpostsテーブルをSupabaseで作成する。適切な制約とインデックスを設定する。
+**仕様変更**: 投稿者名（username）フィールドを追加し、任意で名前を入力できるようにする。
 
 ## 受け入れ条件
 - [ ] postsテーブルが作成されている
 - [ ] 全カラムが仕様通りに設定されている
+- [ ] usernameカラムが追加されている
 - [ ] CHECK制約が設定されている
 - [ ] インデックスが作成されている
 - [ ] テーブルが正常に動作する
@@ -28,6 +30,7 @@ Supabaseデータベースに投稿情報を格納するpostsテーブルを作�
 ```sql
 CREATE TABLE posts (
   id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  username    varchar(50) CHECK(username IS NULL OR length(username) BETWEEN 1 AND 50),
   title       varchar(120) NOT NULL CHECK(length(title) BETWEEN 1 AND 120),
   body        text NOT NULL CHECK(length(body) BETWEEN 1 AND 4000),
   created_at  timestamptz NOT NULL DEFAULT now(),
@@ -53,3 +56,5 @@ CREATE INDEX idx_posts_is_hidden_created_at ON posts (is_hidden, created_at DESC
 ## 備考
 - GENERATED ALWAYS AS IDENTITYでIDを自動生成
 - ip_hashは将来のレート制限用（初期はNULL）
+- usernameは任意入力（NULL許可）、最大50文字まで
+- 名前未入力の場合は「名無しさん」などのデフォルト表示をフロントエンドで処理

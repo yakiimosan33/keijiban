@@ -16,7 +16,10 @@ export default function CommentItem({ comment }: CommentItemProps) {
         </div>
       </div>
 
-      <footer className="text-xs text-zinc-500">
+      <footer className="flex items-center justify-between text-xs text-zinc-500">
+        <div className="font-medium">
+          {comment.username || '名無しさん'}
+        </div>
         <time dateTime={comment.created_at}>{relativeTime}</time>
       </footer>
     </article>

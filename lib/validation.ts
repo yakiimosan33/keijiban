@@ -25,6 +25,11 @@ export interface FormFieldState {
 
 // Field validation configurations
 export const FIELD_CONFIG = {
+  username: {
+    minLength: 1,
+    maxLength: 50,
+    required: false,
+  },
   title: {
     minLength: 1,
     maxLength: 120,
@@ -83,6 +88,7 @@ export function validateTextField(
   // Required field validation
   if (config.required && trimmedValue.length === 0) {
     const fieldNames = {
+      username: '投稿者名',
       title: 'タイトル',
       body: fieldType === 'body' ? '本文' : 'コメント',
       comment: 'コメント',
@@ -102,6 +108,7 @@ export function validateTextField(
   // Minimum length validation
   if (trimmedValue.length > 0 && trimmedValue.length < config.minLength) {
     const fieldNames = {
+      username: '投稿者名',
       title: 'タイトル',
       body: fieldType === 'body' ? '本文' : 'コメント',
       comment: 'コメント',
@@ -121,6 +128,7 @@ export function validateTextField(
   // Maximum length validation
   if (value.length > config.maxLength) {
     const fieldNames = {
+      username: '投稿者名',
       title: 'タイトル',
       body: fieldType === 'body' ? '本文' : 'コメント',
       comment: 'コメント',

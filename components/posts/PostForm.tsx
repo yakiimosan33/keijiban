@@ -21,6 +21,12 @@ interface PostFormProps {
 }
 
 interface FormState {
+  username: {
+    value: string;
+    error?: ValidationError;
+    touched: boolean;
+    focused: boolean;
+  };
   title: {
     value: string;
     error?: ValidationError;
@@ -37,6 +43,7 @@ interface FormState {
 
 export default function PostForm({ onSubmitted, onCancel }: PostFormProps) {
   const [formState, setFormState] = useState<FormState>({
+    username: { value: '', touched: false, focused: false },
     title: { value: '', touched: false, focused: false },
     body: { value: '', touched: false, focused: false },
   });
@@ -48,22 +55,25 @@ export default function PostForm({ onSubmitted, onCancel }: PostFormProps) {
     isVisible: boolean;
   }>({ message: '', type: 'info', isVisible: false });
   
+  const usernameInputRef = useRef<HTMLInputElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const bodyInputRef = useRef<HTMLTextAreaElement>(null);
   const submitAttempts = useRef(0);
 
   const validateForm = useCallback((): boolean => {
+    const usernameResult = validateTextField(formState.username.value, 'username', true);
     const titleResult = validateTextField(formState.title.value, 'title', true);
     const bodyResult = validateTextField(formState.body.value, 'body', true);
     
     const newFormState = {
+      username: { ...formState.username, error: usernameResult.error, touched: true },
       title: { ...formState.title, error: titleResult.error, touched: true },
       body: { ...formState.body, error: bodyResult.error, touched: true },
     };
     
     setFormState(newFormState);
     
-    return titleResult.isValid && bodyResult.isValid;
+    return usernameResult.isValid && titleResult.isValid && bodyResult.isValid;
   }, [formState]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,7 +82,9 @@ export default function PostForm({ onSubmitted, onCancel }: PostFormProps) {
 
     if (!validateForm()) {
       // Focus on first error field
-      if (formState.title.error && titleInputRef.current) {
+      if (formState.username.error && usernameInputRef.current) {
+        usernameInputRef.current.focus();
+      } else if (formState.title.error && titleInputRef.current) {
         titleInputRef.current.focus();
       } else if (formState.body.error && bodyInputRef.current) {
         bodyInputRef.current.focus();
@@ -90,10 +102,14 @@ export default function PostForm({ onSubmitted, onCancel }: PostFormProps) {
     setIsSubmitting(true);
 
     try {
+      const sanitizedUsername = formState.username.value.trim() 
+        ? sanitizeInput(formState.username.value.trim()) 
+        : null;
       const sanitizedTitle = sanitizeInput(formState.title.value.trim());
       const sanitizedBody = sanitizeInput(formState.body.value.trim());
       
       const postData: PostInsert = {
+        username: sanitizedUsername,
         title: sanitizedTitle,
         body: sanitizedBody,
         // Note: ip_hash would typically be set server-side for security
@@ -121,6 +137,7 @@ export default function PostForm({ onSubmitted, onCancel }: PostFormProps) {
 
   const resetForm = () => {
     setFormState({
+      username: { value: '', touched: false, focused: false },
       title: { value: '', touched: false, focused: false },
       body: { value: '', touched: false, focused: false },
     });
@@ -134,6 +151,20 @@ export default function PostForm({ onSubmitted, onCancel }: PostFormProps) {
   const closeToast = () => {
     setToast((prev) => ({ ...prev, isVisible: false }));
   };
+
+  const handleUsernameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const result = validateTextField(value, 'username', formState.username.touched);
+    
+    setFormState(prev => ({
+      ...prev,
+      username: {
+        ...prev.username,
+        value,
+        error: result.error,
+      }
+    }));
+  }, [formState.username.touched]);
 
   const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -163,10 +194,30 @@ export default function PostForm({ onSubmitted, onCancel }: PostFormProps) {
     }));
   }, [formState.body.touched]);
 
+  const handleUsernameFocus = () => {
+    setFormState(prev => ({
+      ...prev,
+      username: { ...prev.username, focused: true }
+    }));
+  };
+
   const handleTitleFocus = () => {
     setFormState(prev => ({
       ...prev,
       title: { ...prev.title, focused: true }
+    }));
+  };
+
+  const handleUsernameBlur = () => {
+    const result = validateTextField(formState.username.value, 'username', true);
+    setFormState(prev => ({
+      ...prev,
+      username: {
+        ...prev.username,
+        focused: false,
+        touched: true,
+        error: result.error,
+      }
     }));
   };
 
@@ -208,17 +259,18 @@ export default function PostForm({ onSubmitted, onCancel }: PostFormProps) {
   };
 
   // Check if form can be submitted
-  const isFormValid = !formState.title.error?.message || formState.title.error?.severity !== 'error'
+  const isFormValid = (!formState.username.error?.message || formState.username.error?.severity !== 'error')
+    && (!formState.title.error?.message || formState.title.error?.severity !== 'error')
     && (!formState.body.error?.message || formState.body.error?.severity !== 'error')
     && formState.title.value.trim().length > 0
     && formState.body.value.trim().length > 0;
 
   const isSubmitDisabled = isSubmitting || !canSubmit || !isFormValid;
 
-  // Auto-focus title field on mount
+  // Auto-focus username field on mount
   useEffect(() => {
-    if (titleInputRef.current) {
-      titleInputRef.current.focus();
+    if (usernameInputRef.current) {
+      usernameInputRef.current.focus();
     }
   }, []);
 
@@ -231,6 +283,66 @@ export default function PostForm({ onSubmitted, onCancel }: PostFormProps) {
           className="-mt-2" 
           onUpdate={handleRateLimitUpdate}
         />
+
+        {/* Username field */}
+        <div>
+          <label
+            htmlFor="post-username"
+            className="block text-sm font-medium text-zinc-700 mb-2"
+          >
+            投稿者名 <span className="text-zinc-500 text-xs">(省略可)</span>
+          </label>
+          <input
+            ref={usernameInputRef}
+            id="post-username"
+            type="text"
+            value={formState.username.value}
+            onChange={handleUsernameChange}
+            onFocus={handleUsernameFocus}
+            onBlur={handleUsernameBlur}
+            className={`input-field ${getInputBorderColor(
+              formState.username.error,
+              formState.username.focused,
+              formState.username.touched
+            )}`}
+            style={{ minHeight: '44px' }}
+            placeholder="名前（省略可）"
+            maxLength={FIELD_CONFIG.username.maxLength}
+            disabled={isSubmitting}
+            {...getAriaAttributes(
+              'post-username',
+              formState.username.error,
+              { current: formState.username.value.length, max: FIELD_CONFIG.username.maxLength }
+            )}
+          />
+          
+          <div className="mt-2">
+            {/* Error message */}
+            {formState.username.error && formState.username.touched && (
+              <div 
+                id="post-username-error" 
+                className="mb-2"
+                role="alert"
+                aria-live="polite"
+              >
+                <p className={`text-sm ${
+                  formState.username.error.severity === 'error' 
+                    ? 'text-red-600' 
+                    : 'text-amber-600'
+                }`}>
+                  {formState.username.error.message}
+                </p>
+              </div>
+            )}
+            
+            {/* Character counter */}
+            <CharacterCounter
+              current={formState.username.value.length}
+              max={FIELD_CONFIG.username.maxLength}
+              fieldId="post-username"
+            />
+          </div>
+        </div>
 
         {/* Title field */}
         <div>

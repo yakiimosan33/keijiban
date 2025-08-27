@@ -77,6 +77,10 @@ export default function PostDetail({ postId }: PostDetailProps) {
     );
   }
 
+  if (!post) {
+    return null;
+  }
+
   const relativeTime = formatRelativeTime(new Date(post.created_at));
 
   return (
@@ -85,8 +89,11 @@ export default function PostDetail({ postId }: PostDetailProps) {
         <h1 className="text-2xl font-bold text-zinc-900 leading-tight mb-3">
           {post.title}
         </h1>
-        <div className="flex items-center text-sm text-zinc-500">
+        <div className="flex items-center justify-between text-sm text-zinc-500">
           <time dateTime={post.created_at}>{relativeTime}</time>
+          <div className="font-medium">
+            投稿者: {post.username || '名無しさん'}
+          </div>
         </div>
       </header>
 
